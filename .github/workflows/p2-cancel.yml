@@ -1,0 +1,22 @@
+name: p2-cancel
+on: [pull_request]
+permissions: {contents: read}
+jobs:
+  c_tests:              # long-running so the run can be cancelled while it runs
+    runs-on: ubuntu-latest
+    steps:
+      - run: sleep 900
+  c_gate_notcancelled:  # common recommendation: runs if a need fails, but not if the run is cancelled
+    needs: c_tests
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: ${{ needs.c_tests.result != 'success' }}
+  c_gate_always:        # control: runs even when the run is cancelled, then fails
+    needs: c_tests
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: ${{ needs.c_tests.result != 'success' }}
