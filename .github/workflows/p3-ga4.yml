@@ -1,0 +1,41 @@
+name: p3-ga4
+# Mirrors the structure of next.js build_and_deploy.yml (buildPassed) at c1d7827db397.
+on: [pull_request]
+permissions: {contents: read}
+jobs:
+  deploy-target:
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.t.outputs.value }}
+    steps:
+      - id: t
+        run: echo "value=automated-preview" >> "$GITHUB_OUTPUT"
+  generate-native-matrix:      # simulates a failure of the matrix generator (API error, runner problem)
+    needs: [deploy-target]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        run: exit 1
+  build-native:                # depends on the generator: skipped when it fails
+    needs: [deploy-target, generate-native-matrix]
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.generate-native-matrix.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "building ${{ matrix.target }}"
+  build:
+    needs: [deploy-target]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+  buildPassed:                 # same if/step as next.js; named like the required check of this repo
+    needs: ['deploy-target', 'build', 'build-native']
+    if: ${{ always() && needs.deploy-target.outputs.value != '' }}
+    name: gate_dflt
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: ${{ always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
