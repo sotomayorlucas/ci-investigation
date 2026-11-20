@@ -26,13 +26,14 @@ jobs:
     name: gate_dflt
     runs-on: ubuntu-latest
     needs:
+      - matrix
       - test-on-prev-go
       - linux-test
     if: always()
     steps:
       - name: Check Results
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
             echo "Some checks failed"
             exit 1
           else
