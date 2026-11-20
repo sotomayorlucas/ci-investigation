@@ -1,0 +1,40 @@
+name: p4-ga3
+# Mirrors the `results` job of cilium/ebpf .github/workflows/ci.yml at b56cdb8d8268 (unchanged on main, Nov 2026).
+on: [pull_request]
+permissions: {contents: read}
+jobs:
+  matrix:                      # path 2: matrix generator (not in results' needs) fails
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        run: exit 1
+  linux-test:                  # depends on matrix: skipped when it fails
+    needs: matrix
+    strategy:
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo test
+  test-on-prev-go:             # path 1: a test that hangs until its timeout ends "cancelled"
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: sleep 300
+  results:                     # same if/step as cilium; named like this repo's required check
+    name: gate_dflt
+    runs-on: ubuntu-latest
+    needs:
+      - test-on-prev-go
+      - linux-test
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "Some checks failed"
+            exit 1
+          else
+            echo "All checks passed"
+          fi
